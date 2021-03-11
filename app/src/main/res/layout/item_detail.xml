@@ -8,4 +8,4 @@
     android:padding="16dp"
     android:textIsSelectable="true"
     tools:context=".ItemDetailFragment"
-    android:inputType="textCapSentences" />
+    android:inputType="textCapSentences|textMultiLine" />
