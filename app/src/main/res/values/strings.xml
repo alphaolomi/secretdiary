@@ -1,4 +1,9 @@
 <resources>
     <string name="app_name">SecretDiary</string>
-    <string name="title_item_detail">Item Detail</string>
+    <string name="biometricAuthentificationRequired">Bitte authentifizieren</string>
+    <string name="export">Exportieren</string>
+    <string name="exportPlainText">Text</string>
+    <string name="exportPublicKey">Öffentlicher Schlüssel</string>
+    <string name="exportSignature">Digitale Signatur</string>
+    <string name="delete">Löschen</string>
 </resources>

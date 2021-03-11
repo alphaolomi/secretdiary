@@ -1,42 +1,41 @@
 package com.linkesoft.secretdiary;
 
 import android.content.Intent;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
-
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
-import com.google.android.material.snackbar.Snackbar;
-
-import androidx.appcompat.widget.Toolbar;
-
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.FileProvider;
 
-import android.view.MenuItem;
+import com.linkesoft.secretdiary.data.Diary;
+import com.linkesoft.secretdiary.data.DiaryEntry;
+import com.linkesoft.secretdiary.databinding.ActivityItemDetailBinding;
+
+import java.io.File;
+import java.io.FileWriter;
 
 /**
- * An activity representing a single Item detail screen. This
- * activity is only used on narrow width devices. On tablet-size devices,
- * item details are presented side-by-side with a list of items
- * in a {@link ItemListActivity}.
+ * An activity representing a single Item detail screen.
  */
-public class ItemDetailActivity extends AppCompatActivity {
+public class ItemDetailActivity extends AppCompatActivity implements ILockableActivity {
+    private ActivityItemDetailBinding binding;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_item_detail);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.detail_toolbar);
-        setSupportActionBar(toolbar);
+        binding = ActivityItemDetailBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
+        setSupportActionBar(binding.detailToolbar);
 
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own detail action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
-            }
+        binding.fab.setOnClickListener(view -> {
+            currentEntry().toggleMood();
+            binding.fab.setText(currentEntry().getMoodEmoji());//setImageBitmap(currentEntry().moodBitmap());
         });
 
         // Show the Up button in the action bar.
@@ -69,6 +68,38 @@ public class ItemDetailActivity extends AppCompatActivity {
     }
 
     @Override
+    public void lock() {
+        binding.lock.setVisibility(View.VISIBLE);
+    }
+
+    @Override
+    public void unlock() {
+        binding.lock.setVisibility(View.GONE);
+    }
+
+    private ItemDetailFragment fragment() {
+        ItemDetailFragment fragment = (ItemDetailFragment) getSupportFragmentManager().findFragmentById(R.id.item_detail_container);
+        return fragment;
+    }
+
+    private DiaryEntry currentEntry() {
+        return fragment().diaryEntry;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        //binding.fab.setImageBitmap(currentEntry().moodBitmap());
+        binding.fab.setText(currentEntry().getMoodEmoji());
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.item_detail, menu);
+        return true;
+    }
+
+    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
         if (id == android.R.id.home) {
@@ -80,7 +111,65 @@ public class ItemDetailActivity extends AppCompatActivity {
             //
             navigateUpTo(new Intent(this, ItemListActivity.class));
             return true;
+        } else if (id == R.id.delete) {
+            AlertDialog confirmation = new AlertDialog.Builder(this).create();
+            confirmation.setTitle(R.string.delete);
+            confirmation.setButton(AlertDialog.BUTTON_NEGATIVE, getString(android.R.string.ok), (dialog, which) -> delete());
+            confirmation.show();
+        } else if (id == R.id.exportSignature) {
+            exportSignature();
+        } else if (id == R.id.exportPlainText) {
+            exportPlainText();
+        } else if (id == R.id.exportPublicKey) {
+            exportPublicKey();
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void delete() {
+        currentEntry().delete();
+        fragment().diaryEntry = null;
+        finish();
+    }
+
+    private void exportSignature() {
+        String text = fragment().getText();
+        File file = currentEntry().getSignatureFile(text);
+        startActivity(Intent.createChooser(intentToSend(file), getString(R.string.exportSignature)));
+    }
+
+    private void exportPublicKey() {
+        File file = Diary.getPublicKeyFile();
+        startActivity(Intent.createChooser(intentToSend(file), getString(R.string.exportPublicKey)));
+    }
+
+    private void exportPlainText() {
+        String text = fragment().getText();
+        File file = new File(App.appContext().getCacheDir(), currentEntry().fileName());
+        file.delete();
+        try {
+            FileWriter out = new FileWriter(file);
+            out.write(text);
+            out.close();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        file.deleteOnExit();
+        startActivity(Intent.createChooser(intentToSend(file), getString(R.string.exportPlainText)));
+    }
+
+    private Intent intentToSend(File file) {
+        Intent intent = new Intent(android.content.Intent.ACTION_SEND);
+        intent.setType("text/plain");
+        intent.putExtra(Intent.EXTRA_TITLE, file.getName());
+        intent.putExtra(Intent.EXTRA_SUBJECT, file.getName());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            Uri contentUri = FileProvider.getUriForFile(this, getApplicationContext().getPackageName() + ".fileprovider", file);
+            intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.putExtra(Intent.EXTRA_STREAM, contentUri);
+        } else {
+            intent.putExtra(Intent.EXTRA_STREAM, Uri.fromFile(file));
+        }
+        return intent;
     }
 }
