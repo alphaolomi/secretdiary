@@ -61,7 +61,8 @@ public class App extends Application implements Application.ActivityLifecycleCal
 
     public static void showBiometricPrompt(FragmentActivity activity) {
         Log.d("SecretDiary", "show biometric prompt");
-
+        if (activity instanceof ILockableActivity)
+            ((ILockableActivity) activity).lock();
         BiometricPrompt prompt = new BiometricPrompt(activity, new BiometricPrompt.AuthenticationCallback() {
             @Override
             public void onAuthenticationSucceeded(@NonNull BiometricPrompt.AuthenticationResult result) {
@@ -82,11 +83,8 @@ public class App extends Application implements Application.ActivityLifecycleCal
 
     @Override
     public void onActivityStarted(@NonNull Activity activity) {
-        if (countStarted == 0) {
-            // App geht in den Vordergrund
-            Log.d(getClass().getSimpleName(), "App comes into foreground");
-            onAppForeground(activity);
-        }
+        if (countStarted == 0)
+            isLocked = true; // show biometric prompt on resume
         countStarted++;
     }
 
@@ -107,16 +105,17 @@ public class App extends Application implements Application.ActivityLifecycleCal
 
     @Override
     public void onActivityResumed(@NonNull Activity activity) {
-        if (isLocked)
-            lock(activity);
-        else
+        if (isLocked) {
+            // App geht in den Vordergrund
+            Log.d(getClass().getSimpleName(), "App comes into foreground");
+            onAppForeground(activity); // will show biometric prompt and unlock
+        } else {
             unlock(activity);
+        }
     }
 
     @Override
     public void onActivityPaused(@NonNull Activity activity) {
-        if (isLocked)
-            lock(activity);
     }
 
     @Override

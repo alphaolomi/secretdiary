@@ -1,5 +1,7 @@
 package com.linkesoft.secretdiary.data;
 
+import static androidx.security.crypto.EncryptedFile.FileEncryptionScheme;
+
 import android.content.Context;
 import android.security.keystore.UserNotAuthenticatedException;
 import android.util.Log;
@@ -20,8 +22,6 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Locale;
-
-import static androidx.security.crypto.EncryptedFile.FileEncryptionScheme;
 
 public class DiaryEntry {
 
@@ -86,7 +86,8 @@ public class DiaryEntry {
     }
 
     public void delete() {
-        file.delete();
+        if (file != null && file.exists())
+            file.delete();
     }
 
     public String fileName() {
@@ -119,7 +120,10 @@ public class DiaryEntry {
             inputStream = encryptedFile.openFileInput();
             byte[] bytes = new byte[(int) file.length()];
             int nRead = inputStream.read(bytes);
-            text = new String(Arrays.copyOf(bytes, nRead)); // encrypted file could be longer than actual payload
+            if (nRead >= 0)
+                text = new String(Arrays.copyOf(bytes, nRead)); // encrypted file could be longer than actual payload
+            else
+                text = "";
         } catch (Exception e) {
             Log.e(getClass().getSimpleName(), "Could not read entry", e);
             if (e.getCause() instanceof UserNotAuthenticatedException) {
